@@ -1,68 +1,48 @@
-#!/usr/bin/python
-# IP Subnet Converter
-# v0.1
-# 07/16/2014
-#
-# Twitter: @ustayready
-# Email: mike@linux.edu
+import argparse
+import ipaddress
 
-import argparse, ipcalc
+def parse_cidr_to_addresses(cidr):
+    """Convert a CIDR block to a list of addressable IPs."""
+    try:
+        network = ipaddress.ip_network(cidr, strict=False)
+        return [str(ip) for ip in network.hosts()]
+    except ValueError as e:
+        print(f"Invalid CIDR block: {cidr}. Error: {e}")
+        return []
 
-ver = 0.1
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
+def process_file(filepath):
+    """Read CIDR blocks from a file and convert them to addressable IPs."""
+    try:
+        with open(filepath, 'r') as file:
+            lines = file.readlines()
+        results = {}
+        for line in lines:
+            cidr = line.strip()
+            results[cidr] = parse_cidr_to_addresses(cidr)
+        return results
+    except FileNotFoundError:
+        print(f"File not found: {filepath}")
+        return {}
 
-verbose = None
-output = None
+def main():
+    parser = argparse.ArgumentParser(description="Convert CIDR blocks to addressable IP addresses.")
+    parser.add_argument("input", type=str, help="A CIDR block or a file containing CIDR blocks.")
+    parser.add_argument("-f", "--file", action="store_true", help="Specify if the input is a file.")
 
-parser = argparse.ArgumentParser(description='Convert multiple IP ranges to a list of usable IP addresses')
-parser.add_argument('--range', help='Single range to convert', type=str)
-parser.add_argument('--file', help='Filename of ranges to convert', type=str)
-parser.add_argument('--output', help='output results file', type=str)
-parser.add_argument('--verbose', help='print verbose output', action='store_true', default=False)
-args = parser.parse_args()
+    args = parser.parse_args()
 
-def valid(args):
-        global ver
+    if args.file:
+        # Process file containing CIDR blocks
+        results = process_file(args.input)
+        for cidr, addresses in results.items():
+            print(f"{cidr}:")
+            for addr in addresses:
+                print(f"  {addr}")
+    else:
+        # Process a single CIDR block
+        addresses = parse_cidr_to_addresses(args.input)
+        for addr in addresses:
+            print(addr)
 
-        if not any([args.range, args.file]):
-                parser.print_usage()
-                quit()
-
-        if args.range and args.file:
-                print('ERROR: Only supply a range or file but not both.')
-                quit()
-        return True
-
-def convertranges(ranges):
-        global output, verbose
-
-        for range in ranges:
-                if "/" in range:
-                       for x in ipcalc.Network(range):
-                           if verbose:
-                                 print str(x)
-                           if output:
-                                 with open(output, "a") as out_file:
-                                      out_file.write(str(x) + "\n")
-
-if valid(args):
-        ranges = []
-        if args.verbose:
-                verbose = args.verbose
-        if args.output:
-                output = args.output
-        if args.range:
-                ranges.append(args.range)
-
-        if args.file:
-                f = open(args.file)
-                for line in f:
-                        ranges.append(line.strip())
-        convertranges(ranges)
-
+if __name__ == "__main__":
+    main()
